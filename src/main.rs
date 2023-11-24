@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::{env, net::Ipv4Addr, process::exit, str::FromStr};
+use std::{env, fmt::Display, net::Ipv4Addr, process::exit, str::FromStr};
 
 #[derive(Debug, PartialEq)]
 pub enum IpClass {
@@ -10,19 +10,56 @@ pub enum IpClass {
     E,
 }
 
+impl Display for IpClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct CidrInfo {
     pub ip: Ipv4Addr,
     pub cidr: u8,
-    pub mask_subnet: Ipv4Addr,
-    pub mask_wildcard: Ipv4Addr,
-    pub addr_host_first: Ipv4Addr,
-    pub addr_host_last: Ipv4Addr,
-    pub hosts_usable: u64,
-    pub addr_network: Ipv4Addr,
-    pub addr_broadcast: Ipv4Addr,
-    pub hosts_total: u64,
-    pub ip_class: IpClass, 
+    pub ip_class: IpClass,
+    pub subnet_mask: Ipv4Addr,
+    pub wildcard_mask: Ipv4Addr,
+    pub first_host_addr: Ipv4Addr,
+    pub last_host_addr: Ipv4Addr,
+    pub usable_hosts: u64,
+    pub network_addr: Ipv4Addr,
+    pub broadcast_addr: Ipv4Addr,
+    pub total_hosts: u64,
+}
+
+impl Display for CidrInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Network Summary
+ip...............: {ip}
+cidr.............: {cidr}
+ip_class.........: {ip_class}
+subnet_mask......: {subnet_mask}
+wildcard_mask....: {wildcard_mask}
+first_host_addr..: {first_host_addr}
+last_host_addr...: {last_host_addr} 
+usable_hosts.....: {usable_hosts}
+network_addr.....: {network_addr}
+broadcast_addr...: {broadcast_addr}
+total_hosts......: {total_hosts}",
+            ip = self.ip,
+            cidr = self.cidr,
+            ip_class = self.ip_class,
+            subnet_mask = self.subnet_mask,
+            wildcard_mask = self.wildcard_mask,
+            first_host_addr = self.first_host_addr,
+            last_host_addr = self.last_host_addr,
+            usable_hosts = self.usable_hosts,
+            network_addr = self.network_addr,
+            broadcast_addr = self.broadcast_addr,
+            total_hosts = self.total_hosts,
+        )
+    }
 }
 
 impl CidrInfo {
@@ -41,14 +78,14 @@ impl CidrInfo {
         CidrInfo {
             ip,
             cidr,
-            mask_subnet,
-            mask_wildcard,
-            addr_host_first,
-            addr_host_last,
-            addr_network,
-            addr_broadcast,
-            hosts_usable,
-            hosts_total,
+            subnet_mask: mask_subnet,
+            wildcard_mask: mask_wildcard,
+            first_host_addr: addr_host_first,
+            last_host_addr: addr_host_last,
+            network_addr: addr_network,
+            broadcast_addr: addr_broadcast,
+            usable_hosts: hosts_usable,
+            total_hosts: hosts_total,
             ip_class,
         }
     }
@@ -109,7 +146,7 @@ fn get_network_addr(mask_subnet: Ipv4Addr, ip: Ipv4Addr) -> Ipv4Addr {
 
 fn get_first_host_addr(addr_network: Ipv4Addr, hosts_usable: u64) -> Ipv4Addr {
     if hosts_usable == 0 {
-        return addr_network
+        return addr_network;
     }
 
     let addr_network_octets = addr_network.octets();
@@ -135,7 +172,7 @@ fn get_broadcast_addr(mask_wildcard: Ipv4Addr, ip: Ipv4Addr) -> Ipv4Addr {
 
 fn get_last_host_addr(addr_broadcast: Ipv4Addr, hosts_usable: u64) -> Ipv4Addr {
     if hosts_usable == 0 {
-        return addr_broadcast
+        return addr_broadcast;
     }
     let addr_broadcast_octets = addr_broadcast.octets();
     Ipv4Addr::new(
@@ -172,9 +209,10 @@ fn main() -> Result<()> {
     }
 
     if let Some(ip_and_cidr) = args.get(1) {
-        let addr_info = CidrInfo::new(ip_and_cidr);
-
-        println!("{:#?}", addr_info);
+        let cidr_info = CidrInfo::new(ip_and_cidr);
+        println!("{cidr_info}");
+    } else {
+        usage();
     };
 
     Ok(())
@@ -191,16 +229,26 @@ mod test {
     use std::net::Ipv4Addr;
 
     use crate::{
-        get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr,
-        get_network_addr, get_subnet_mask, get_wildcard_mask, CidrInfo, parse_ip_cidr_string, IpClass, get_ip_class,
+        get_broadcast_addr, get_first_host_addr, get_host_values, get_ip_class, get_last_host_addr,
+        get_network_addr, get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string, CidrInfo,
+        IpClass,
     };
 
     #[test]
     fn test_parse_ip_cidr_string() {
         // Arrange / Act / Assert
-        assert_eq!(parse_ip_cidr_string("0.0.0.1/1"), (Ipv4Addr::new(0, 0, 0, 1), 1));
-        assert_eq!(parse_ip_cidr_string("192.168.1.0/24"), (Ipv4Addr::new(192, 168, 1, 0), 24));
-        assert_eq!(parse_ip_cidr_string("255.255.255.255/32"), (Ipv4Addr::new(255, 255, 255, 255), 32));
+        assert_eq!(
+            parse_ip_cidr_string("0.0.0.1/1"),
+            (Ipv4Addr::new(0, 0, 0, 1), 1)
+        );
+        assert_eq!(
+            parse_ip_cidr_string("192.168.1.0/24"),
+            (Ipv4Addr::new(192, 168, 1, 0), 24)
+        );
+        assert_eq!(
+            parse_ip_cidr_string("255.255.255.255/32"),
+            (Ipv4Addr::new(255, 255, 255, 255), 32)
+        );
     }
 
     #[test]
@@ -216,7 +264,7 @@ mod test {
         // Arrange / Act / Assert
         parse_ip_cidr_string("0.0.0.0/33");
     }
-    
+
     #[test]
     #[should_panic]
     fn test_parse_ip_cidr_string_too_big_ip() {
@@ -356,16 +404,16 @@ mod test {
 
     #[test]
     fn test_get_ip_class() {
-        assert_eq!(get_ip_class(Ipv4Addr::new(0,0,0,0)), IpClass::A);
-        assert_eq!(get_ip_class(Ipv4Addr::new(127,0,0,0)), IpClass::A);
-        assert_eq!(get_ip_class(Ipv4Addr::new(128,0,0,0)), IpClass::B);
-        assert_eq!(get_ip_class(Ipv4Addr::new(191,0,0,0)), IpClass::B);
-        assert_eq!(get_ip_class(Ipv4Addr::new(192,0,0,0)), IpClass::C);
-        assert_eq!(get_ip_class(Ipv4Addr::new(223,0,0,0)), IpClass::C);
-        assert_eq!(get_ip_class(Ipv4Addr::new(224,0,0,0)), IpClass::D);
-        assert_eq!(get_ip_class(Ipv4Addr::new(239,0,0,0)), IpClass::D);
-        assert_eq!(get_ip_class(Ipv4Addr::new(240,0,0,0)), IpClass::E);
-        assert_eq!(get_ip_class(Ipv4Addr::new(255,0,0,0)), IpClass::E);
+        assert_eq!(get_ip_class(Ipv4Addr::new(0, 0, 0, 0)), IpClass::A);
+        assert_eq!(get_ip_class(Ipv4Addr::new(127, 0, 0, 0)), IpClass::A);
+        assert_eq!(get_ip_class(Ipv4Addr::new(128, 0, 0, 0)), IpClass::B);
+        assert_eq!(get_ip_class(Ipv4Addr::new(191, 0, 0, 0)), IpClass::B);
+        assert_eq!(get_ip_class(Ipv4Addr::new(192, 0, 0, 0)), IpClass::C);
+        assert_eq!(get_ip_class(Ipv4Addr::new(223, 0, 0, 0)), IpClass::C);
+        assert_eq!(get_ip_class(Ipv4Addr::new(224, 0, 0, 0)), IpClass::D);
+        assert_eq!(get_ip_class(Ipv4Addr::new(239, 0, 0, 0)), IpClass::D);
+        assert_eq!(get_ip_class(Ipv4Addr::new(240, 0, 0, 0)), IpClass::E);
+        assert_eq!(get_ip_class(Ipv4Addr::new(255, 0, 0, 0)), IpClass::E);
     }
 
     #[test]
@@ -381,14 +429,14 @@ mod test {
         let expected_addr_info = CidrInfo {
             ip: Ipv4Addr::new(0, 0, 0, 0),
             cidr: 1,
-            mask_subnet: Ipv4Addr::new(128, 0, 0, 0),
-            mask_wildcard: Ipv4Addr::new(127, 255, 255, 255),
-            addr_host_first: Ipv4Addr::new(0, 0, 0, 1),
-            addr_host_last: Ipv4Addr::new(127, 255, 255, 254),
-            hosts_usable: 2_147_483_646,
-            addr_network: Ipv4Addr::new(0, 0, 0, 0),
-            addr_broadcast: Ipv4Addr::new(127, 255, 255, 255),
-            hosts_total: 2_147_483_648,
+            subnet_mask: Ipv4Addr::new(128, 0, 0, 0),
+            wildcard_mask: Ipv4Addr::new(127, 255, 255, 255),
+            first_host_addr: Ipv4Addr::new(0, 0, 0, 1),
+            last_host_addr: Ipv4Addr::new(127, 255, 255, 254),
+            usable_hosts: 2_147_483_646,
+            network_addr: Ipv4Addr::new(0, 0, 0, 0),
+            broadcast_addr: Ipv4Addr::new(127, 255, 255, 255),
+            total_hosts: 2_147_483_648,
             ip_class: IpClass::A,
         };
 
@@ -405,14 +453,14 @@ mod test {
         let expected_addr_info = CidrInfo {
             ip: Ipv4Addr::new(255, 255, 255, 253),
             cidr: 11,
-            mask_subnet: Ipv4Addr::new(255, 224, 0, 0),
-            mask_wildcard: Ipv4Addr::new(0, 31, 255, 255),
-            addr_host_first: Ipv4Addr::new(255, 224, 0, 1),
-            addr_host_last: Ipv4Addr::new(255, 255, 255, 254),
-            hosts_usable: 2_097_150,
-            addr_network: Ipv4Addr::new(255, 224, 0, 0),
-            addr_broadcast: Ipv4Addr::new(255, 255, 255, 255),
-            hosts_total: 2_097_152,
+            subnet_mask: Ipv4Addr::new(255, 224, 0, 0),
+            wildcard_mask: Ipv4Addr::new(0, 31, 255, 255),
+            first_host_addr: Ipv4Addr::new(255, 224, 0, 1),
+            last_host_addr: Ipv4Addr::new(255, 255, 255, 254),
+            usable_hosts: 2_097_150,
+            network_addr: Ipv4Addr::new(255, 224, 0, 0),
+            broadcast_addr: Ipv4Addr::new(255, 255, 255, 255),
+            total_hosts: 2_097_152,
             ip_class: IpClass::E,
         };
 
@@ -428,14 +476,14 @@ mod test {
         let expected_addr_info = CidrInfo {
             ip: Ipv4Addr::new(10, 8, 17, 0),
             cidr: 13,
-            mask_subnet: Ipv4Addr::new(255, 248, 0, 0),
-            mask_wildcard: Ipv4Addr::new(0, 7, 255, 255),
-            addr_host_first: Ipv4Addr::new(10, 8, 0, 1),
-            addr_host_last: Ipv4Addr::new(10, 15, 255, 254),
-            hosts_usable: 524_286,
-            addr_network: Ipv4Addr::new(10, 8, 0, 0),
-            addr_broadcast: Ipv4Addr::new(10, 15, 255, 255),
-            hosts_total: 524_288,
+            subnet_mask: Ipv4Addr::new(255, 248, 0, 0),
+            wildcard_mask: Ipv4Addr::new(0, 7, 255, 255),
+            first_host_addr: Ipv4Addr::new(10, 8, 0, 1),
+            last_host_addr: Ipv4Addr::new(10, 15, 255, 254),
+            usable_hosts: 524_286,
+            network_addr: Ipv4Addr::new(10, 8, 0, 0),
+            broadcast_addr: Ipv4Addr::new(10, 15, 255, 255),
+            total_hosts: 524_288,
             ip_class: IpClass::A,
         };
 
@@ -452,14 +500,14 @@ mod test {
         let expected_addr_info = CidrInfo {
             ip: Ipv4Addr::new(10, 0, 0, 1),
             cidr: 24,
-            mask_subnet: Ipv4Addr::new(255, 255, 255, 0),
-            mask_wildcard: Ipv4Addr::new(0, 0, 0, 255),
-            addr_host_first: Ipv4Addr::new(10, 0, 0, 1),
-            addr_host_last: Ipv4Addr::new(10, 0, 0, 254),
-            addr_network: Ipv4Addr::new(10, 0, 0, 0),
-            addr_broadcast: Ipv4Addr::new(10, 0, 0, 255),
-            hosts_usable: 254,
-            hosts_total: 256,
+            subnet_mask: Ipv4Addr::new(255, 255, 255, 0),
+            wildcard_mask: Ipv4Addr::new(0, 0, 0, 255),
+            first_host_addr: Ipv4Addr::new(10, 0, 0, 1),
+            last_host_addr: Ipv4Addr::new(10, 0, 0, 254),
+            network_addr: Ipv4Addr::new(10, 0, 0, 0),
+            broadcast_addr: Ipv4Addr::new(10, 0, 0, 255),
+            usable_hosts: 254,
+            total_hosts: 256,
             ip_class: IpClass::A,
         };
 
@@ -476,14 +524,14 @@ mod test {
         let expected_addr_info = CidrInfo {
             ip: Ipv4Addr::new(10, 0, 0, 1),
             cidr: 31,
-            mask_subnet: Ipv4Addr::new(255, 255, 255, 254),
-            mask_wildcard: Ipv4Addr::new(0, 0, 0, 1),
-            addr_host_first: Ipv4Addr::new(10, 0, 0, 0),
-            addr_host_last: Ipv4Addr::new(10, 0, 0, 1),
-            addr_network: Ipv4Addr::new(10, 0, 0, 0),
-            addr_broadcast: Ipv4Addr::new(10, 0, 0, 1),
-            hosts_usable: 0,
-            hosts_total: 2,
+            subnet_mask: Ipv4Addr::new(255, 255, 255, 254),
+            wildcard_mask: Ipv4Addr::new(0, 0, 0, 1),
+            first_host_addr: Ipv4Addr::new(10, 0, 0, 0),
+            last_host_addr: Ipv4Addr::new(10, 0, 0, 1),
+            network_addr: Ipv4Addr::new(10, 0, 0, 0),
+            broadcast_addr: Ipv4Addr::new(10, 0, 0, 1),
+            usable_hosts: 0,
+            total_hosts: 2,
             ip_class: IpClass::A,
         };
 
