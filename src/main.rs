@@ -2,6 +2,15 @@ use anyhow::Result;
 use std::{env, net::Ipv4Addr, process::exit, str::FromStr};
 
 #[derive(Debug, PartialEq)]
+pub enum IpClass {
+    A,
+    B,
+    C,
+    D,
+    E,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct CidrInfo {
     pub ip: Ipv4Addr,
     pub cidr: u8,
@@ -13,6 +22,7 @@ pub struct CidrInfo {
     pub addr_network: Ipv4Addr,
     pub addr_broadcast: Ipv4Addr,
     pub hosts_total: u64,
+    pub ip_class: IpClass, 
 }
 
 impl CidrInfo {
@@ -26,6 +36,7 @@ impl CidrInfo {
         let addr_host_first = get_first_host_addr(addr_network, hosts_usable);
         let addr_broadcast = get_broadcast_addr(mask_wildcard, ip);
         let addr_host_last = get_last_host_addr(addr_broadcast, hosts_usable);
+        let ip_class = get_ip_class(ip);
 
         CidrInfo {
             ip,
@@ -38,6 +49,7 @@ impl CidrInfo {
             addr_broadcast,
             hosts_usable,
             hosts_total,
+            ip_class,
         }
     }
 }
@@ -109,16 +121,6 @@ fn get_first_host_addr(addr_network: Ipv4Addr, hosts_usable: u64) -> Ipv4Addr {
     )
 }
 
-/// Calculate the broadcast address given the host_mask / wildcard_mask, and ip_addr
-///
-/// example:
-/// Force all host bits to be 1
-/// 1.2.3.4
-/// 0.0.0.255
-/// 00000001.00000010.00000011.00000100
-/// 00000000.00000000.00000000.11111111
-/// ==
-/// 00000001.00000010.00000011.11111111
 fn get_broadcast_addr(mask_wildcard: Ipv4Addr, ip: Ipv4Addr) -> Ipv4Addr {
     let mask_wildcard_octets = mask_wildcard.octets();
     let ip_octets = ip.octets();
@@ -132,7 +134,6 @@ fn get_broadcast_addr(mask_wildcard: Ipv4Addr, ip: Ipv4Addr) -> Ipv4Addr {
 }
 
 fn get_last_host_addr(addr_broadcast: Ipv4Addr, hosts_usable: u64) -> Ipv4Addr {
-    // TODO: Need to check if the network / broadcast addresses are included in the range.
     if hosts_usable == 0 {
         return addr_broadcast
     }
@@ -151,6 +152,16 @@ fn get_host_values(cidr: u8) -> (u64, u64) {
         return (total, total - 2);
     }
     (total, 0)
+}
+
+fn get_ip_class(first_octet: Ipv4Addr) -> IpClass {
+    match first_octet.octets()[0] {
+        0..=127 => IpClass::A,
+        128..=191 => IpClass::B,
+        192..=223 => IpClass::C,
+        224..=239 => IpClass::D,
+        240..=255 => IpClass::E,
+    }
 }
 
 fn main() -> Result<()> {
@@ -181,7 +192,7 @@ mod test {
 
     use crate::{
         get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr,
-        get_network_addr, get_subnet_mask, get_wildcard_mask, CidrInfo, parse_ip_cidr_string,
+        get_network_addr, get_subnet_mask, get_wildcard_mask, CidrInfo, parse_ip_cidr_string, IpClass, get_ip_class,
     };
 
     #[test]
@@ -344,6 +355,20 @@ mod test {
     }
 
     #[test]
+    fn test_get_ip_class() {
+        assert_eq!(get_ip_class(Ipv4Addr::new(0,0,0,0)), IpClass::A);
+        assert_eq!(get_ip_class(Ipv4Addr::new(127,0,0,0)), IpClass::A);
+        assert_eq!(get_ip_class(Ipv4Addr::new(128,0,0,0)), IpClass::B);
+        assert_eq!(get_ip_class(Ipv4Addr::new(191,0,0,0)), IpClass::B);
+        assert_eq!(get_ip_class(Ipv4Addr::new(192,0,0,0)), IpClass::C);
+        assert_eq!(get_ip_class(Ipv4Addr::new(223,0,0,0)), IpClass::C);
+        assert_eq!(get_ip_class(Ipv4Addr::new(224,0,0,0)), IpClass::D);
+        assert_eq!(get_ip_class(Ipv4Addr::new(239,0,0,0)), IpClass::D);
+        assert_eq!(get_ip_class(Ipv4Addr::new(240,0,0,0)), IpClass::E);
+        assert_eq!(get_ip_class(Ipv4Addr::new(255,0,0,0)), IpClass::E);
+    }
+
+    #[test]
     #[should_panic]
     fn basic_cidr_0() {
         // Arrange / Act / Assert
@@ -364,6 +389,7 @@ mod test {
             addr_network: Ipv4Addr::new(0, 0, 0, 0),
             addr_broadcast: Ipv4Addr::new(127, 255, 255, 255),
             hosts_total: 2_147_483_648,
+            ip_class: IpClass::A,
         };
 
         // Act
@@ -387,6 +413,7 @@ mod test {
             addr_network: Ipv4Addr::new(255, 224, 0, 0),
             addr_broadcast: Ipv4Addr::new(255, 255, 255, 255),
             hosts_total: 2_097_152,
+            ip_class: IpClass::E,
         };
 
         // Act
@@ -409,6 +436,7 @@ mod test {
             addr_network: Ipv4Addr::new(10, 8, 0, 0),
             addr_broadcast: Ipv4Addr::new(10, 15, 255, 255),
             hosts_total: 524_288,
+            ip_class: IpClass::A,
         };
 
         // Act
@@ -432,6 +460,7 @@ mod test {
             addr_broadcast: Ipv4Addr::new(10, 0, 0, 255),
             hosts_usable: 254,
             hosts_total: 256,
+            ip_class: IpClass::A,
         };
 
         // Act
@@ -455,6 +484,7 @@ mod test {
             addr_broadcast: Ipv4Addr::new(10, 0, 0, 1),
             hosts_usable: 0,
             hosts_total: 2,
+            ip_class: IpClass::A,
         };
 
         // Act
