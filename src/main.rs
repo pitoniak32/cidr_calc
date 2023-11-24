@@ -1,6 +1,7 @@
+use std::fmt::Display;
+
 use anyhow::Result;
-use helpers::usage;
-use std::env;
+use clap::{Parser, ValueEnum};
 
 use crate::cider_info::CidrInfo;
 
@@ -8,19 +9,47 @@ mod cider_info;
 mod helpers;
 mod ip_class;
 
-fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+#[derive(Parser)]
+#[command(author, version, about)]
+/// Manage your terminal environment.
+struct Cli {
+    ip_cidr: String,
 
-    if args.len() < 2 {
-        usage();
+    #[arg(short, long, default_value_t = Output::default())]
+    output: Output,
+}
+
+#[derive(ValueEnum, Default, Clone, Debug)]
+#[allow(non_camel_case_types)]
+enum Output {
+    #[default]
+    text,
+    json,
+    yaml,
+}
+
+impl Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
+}
 
-    if let Some(ip_and_cidr) = args.get(1) {
-        let cidr_info = CidrInfo::new(ip_and_cidr);
-        println!("{cidr_info}");
-    } else {
-        usage();
-    };
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    let cidr_info = CidrInfo::new(&cli.ip_cidr);
+
+    match cli.output {
+        Output::text => {
+            println!("{cidr_info}");
+        }
+        Output::json => {
+            println!("{}", serde_json::to_string_pretty::<CidrInfo>(&cidr_info).unwrap())
+        }
+        Output::yaml => {
+            println!("{}", serde_yaml::to_string::<CidrInfo>(&cidr_info).unwrap())
+        },
+    }
 
     Ok(())
 }

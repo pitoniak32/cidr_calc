@@ -1,5 +1,7 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     helpers::{
         get_broadcast_addr, get_first_host_addr, get_host_values, get_ip_class, get_last_host_addr,
@@ -8,7 +10,7 @@ use crate::{
     ip_class::IpClass,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CidrInfo {
     pub ip: Ipv4Addr,
     pub cidr: u8,
