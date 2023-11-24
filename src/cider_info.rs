@@ -2,19 +2,15 @@ use std::{fmt::Display, net::Ipv4Addr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    helpers::{
-        get_broadcast_addr, get_first_host_addr, get_host_values, get_ip_class, get_last_host_addr,
-        get_network_addr, get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string,
-    },
-    ip_class::IpClass,
+use crate::helpers::{
+    get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr, get_network_addr,
+    get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string,
 };
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CidrInfo {
     pub ip: Ipv4Addr,
     pub cidr: u8,
-    pub ip_class: IpClass,
     pub subnet_mask: Ipv4Addr,
     pub wildcard_mask: Ipv4Addr,
     pub first_host_addr: Ipv4Addr,
@@ -32,7 +28,6 @@ impl Display for CidrInfo {
             "Network Summary
 ip...............: {ip}
 cidr.............: {cidr}
-ip_class.........: {ip_class}
 subnet_mask......: {subnet_mask}
 wildcard_mask....: {wildcard_mask}
 first_host_addr..: {first_host_addr}
@@ -43,7 +38,6 @@ broadcast_addr...: {broadcast_addr}
 total_hosts......: {total_hosts}",
             ip = self.ip,
             cidr = self.cidr,
-            ip_class = self.ip_class,
             subnet_mask = self.subnet_mask,
             wildcard_mask = self.wildcard_mask,
             first_host_addr = self.first_host_addr,
@@ -67,7 +61,6 @@ impl CidrInfo {
         let addr_host_first = get_first_host_addr(addr_network, hosts_usable);
         let addr_broadcast = get_broadcast_addr(mask_wildcard, ip);
         let addr_host_last = get_last_host_addr(addr_broadcast, hosts_usable);
-        let ip_class = get_ip_class(ip);
 
         CidrInfo {
             ip,
@@ -80,7 +73,6 @@ impl CidrInfo {
             broadcast_addr: addr_broadcast,
             usable_hosts: hosts_usable,
             total_hosts: hosts_total,
-            ip_class,
         }
     }
 }
@@ -91,12 +83,29 @@ mod test {
 
     use pretty_assertions::assert_eq;
 
-    use crate::{cider_info::CidrInfo, ip_class::IpClass};
+    use crate::cider_info::CidrInfo;
+
     #[test]
-    #[should_panic]
     fn basic_cidr_0() {
-        // Arrange / Act / Assert
-        CidrInfo::new("0.0.0.0/0");
+        // Arrange
+        let expected_addr_info = CidrInfo {
+            ip: Ipv4Addr::new(0, 0, 0, 0),
+            cidr: 0,
+            subnet_mask: Ipv4Addr::new(0, 0, 0, 0),
+            wildcard_mask: Ipv4Addr::new(255, 255, 255, 255),
+            first_host_addr: Ipv4Addr::new(0, 0, 0, 1),
+            last_host_addr: Ipv4Addr::new(255, 255, 255, 254),
+            usable_hosts: 4_294_967_294,
+            network_addr: Ipv4Addr::new(0, 0, 0, 0),
+            broadcast_addr: Ipv4Addr::new(255, 255, 255, 255),
+            total_hosts: 4_294_967_296,
+        };
+
+        // Act
+        let result_addr_info = CidrInfo::new("0.0.0.0/0");
+
+        // Assert
+        assert_eq!(result_addr_info, expected_addr_info);
     }
 
     #[test]
@@ -113,7 +122,6 @@ mod test {
             network_addr: Ipv4Addr::new(0, 0, 0, 0),
             broadcast_addr: Ipv4Addr::new(127, 255, 255, 255),
             total_hosts: 2_147_483_648,
-            ip_class: IpClass::A,
         };
 
         // Act
@@ -137,7 +145,6 @@ mod test {
             network_addr: Ipv4Addr::new(255, 224, 0, 0),
             broadcast_addr: Ipv4Addr::new(255, 255, 255, 255),
             total_hosts: 2_097_152,
-            ip_class: IpClass::E,
         };
 
         // Act
@@ -160,7 +167,6 @@ mod test {
             network_addr: Ipv4Addr::new(10, 8, 0, 0),
             broadcast_addr: Ipv4Addr::new(10, 15, 255, 255),
             total_hosts: 524_288,
-            ip_class: IpClass::A,
         };
 
         // Act
@@ -184,7 +190,6 @@ mod test {
             broadcast_addr: Ipv4Addr::new(10, 0, 0, 255),
             usable_hosts: 254,
             total_hosts: 256,
-            ip_class: IpClass::A,
         };
 
         // Act
@@ -208,7 +213,6 @@ mod test {
             broadcast_addr: Ipv4Addr::new(10, 0, 0, 1),
             usable_hosts: 0,
             total_hosts: 2,
-            ip_class: IpClass::A,
         };
 
         // Act

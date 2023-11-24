@@ -10,7 +10,6 @@ repository = "https://github.com/pitoniak32/cidr_calc"
 [[bin]]
 name = "cidrc"
 path = "src/main.rs"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.75"

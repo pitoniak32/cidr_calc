@@ -1,7 +1,5 @@
 use std::{net::Ipv4Addr, process::exit, str::FromStr};
 
-use crate::ip_class::IpClass;
-
 pub fn parse_ip_cidr_string(ip_and_cidr: &str) -> (Ipv4Addr, u8) {
     let parts: Vec<&str> = ip_and_cidr.split("/").collect();
     if parts.len() < 2 {
@@ -10,9 +8,9 @@ pub fn parse_ip_cidr_string(ip_and_cidr: &str) -> (Ipv4Addr, u8) {
     let ip = Ipv4Addr::from_str(parts.get(0).expect("ip should not be none"))
         .expect("ip should be a vaild ipv4 address");
     let cidr = u8::from_str(parts.get(1).expect("cider mask should not be none"))
-        .expect("CIDR should be in range 1-32 inclusive");
-    if cidr < 1 || cidr > 32 {
-        panic!("CIDR should be in range 1-32 inclusive");
+        .expect("CIDR should be in range 0-32 inclusive");
+    if cidr > 32 {
+        panic!("CIDR should be in range 0-32 inclusive");
     }
 
     (ip, cidr)
@@ -107,33 +105,23 @@ pub fn get_host_values(cidr: u8) -> (u64, u64) {
     (total, 0)
 }
 
-pub fn get_ip_class(first_octet: Ipv4Addr) -> IpClass {
-    match first_octet.octets()[0] {
-        0..=127 => IpClass::A,
-        128..=191 => IpClass::B,
-        192..=223 => IpClass::C,
-        224..=239 => IpClass::D,
-        240..=255 => IpClass::E,
-    }
-}
-
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
     use std::net::Ipv4Addr;
 
-    use crate::{
-        helpers::{
-            get_broadcast_addr, get_first_host_addr, get_host_values, get_ip_class,
-            get_last_host_addr, get_network_addr, get_subnet_mask, get_wildcard_mask,
-            parse_ip_cidr_string,
-        },
-        ip_class::IpClass,
+    use crate::helpers::{
+        get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr,
+        get_network_addr, get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string,
     };
 
     #[test]
     fn test_parse_ip_cidr_string() {
         // Arrange / Act / Assert
+        assert_eq!(
+            parse_ip_cidr_string("0.0.0.0/0"),
+            (Ipv4Addr::new(0, 0, 0, 0), 0)
+        );
         assert_eq!(
             parse_ip_cidr_string("0.0.0.1/1"),
             (Ipv4Addr::new(0, 0, 0, 1), 1)
@@ -146,13 +134,6 @@ mod test {
             parse_ip_cidr_string("255.255.255.255/32"),
             (Ipv4Addr::new(255, 255, 255, 255), 32)
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_parse_ip_cidr_string_too_small_cidr() {
-        // Arrange / Act / Assert
-        parse_ip_cidr_string("0.0.0.0/0");
     }
 
     #[test]
@@ -297,19 +278,5 @@ mod test {
         assert_eq!(get_host_values(1), (2_147_483_648, 2_147_483_646));
         assert_eq!(get_host_values(24), (256, 254));
         assert_eq!(get_host_values(32), (1, 0));
-    }
-
-    #[test]
-    fn test_get_ip_class() {
-        assert_eq!(get_ip_class(Ipv4Addr::new(0, 0, 0, 0)), IpClass::A);
-        assert_eq!(get_ip_class(Ipv4Addr::new(127, 0, 0, 0)), IpClass::A);
-        assert_eq!(get_ip_class(Ipv4Addr::new(128, 0, 0, 0)), IpClass::B);
-        assert_eq!(get_ip_class(Ipv4Addr::new(191, 0, 0, 0)), IpClass::B);
-        assert_eq!(get_ip_class(Ipv4Addr::new(192, 0, 0, 0)), IpClass::C);
-        assert_eq!(get_ip_class(Ipv4Addr::new(223, 0, 0, 0)), IpClass::C);
-        assert_eq!(get_ip_class(Ipv4Addr::new(224, 0, 0, 0)), IpClass::D);
-        assert_eq!(get_ip_class(Ipv4Addr::new(239, 0, 0, 0)), IpClass::D);
-        assert_eq!(get_ip_class(Ipv4Addr::new(240, 0, 0, 0)), IpClass::E);
-        assert_eq!(get_ip_class(Ipv4Addr::new(255, 0, 0, 0)), IpClass::E);
     }
 }

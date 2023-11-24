@@ -7,7 +7,6 @@ use crate::cider_info::CidrInfo;
 
 mod cider_info;
 mod helpers;
-mod ip_class;
 
 #[derive(Parser)]
 #[command(author, version, about)]
