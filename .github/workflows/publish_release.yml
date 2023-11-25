@@ -1,7 +1,9 @@
 name: Publish Crate
 on:
-  push:
-    branches: [main]
+  release:
+    types:
+      - released
+  workflow_dispatch: {}
 jobs:
   publish-crate:
     runs-on: ubuntu-latest
