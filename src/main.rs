@@ -12,6 +12,7 @@ mod helpers;
 #[command(author, version, about)]
 /// Manage your terminal environment.
 struct Cli {
+    /// <ipv4/cidr> - example: `10.0.0.1/24`
     ip_cidr: String,
 
     #[arg(short, long, default_value_t = Output::default())]
@@ -36,17 +37,17 @@ impl Display for Output {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let cidr_info = CidrInfo::new(&cli.ip_cidr);
+    let cidr_info = CidrInfo::new(&cli.ip_cidr)?;
 
     match cli.output {
         Output::text => {
             println!("{cidr_info}");
         }
         Output::json => {
-            println!("{}", serde_json::to_string_pretty::<CidrInfo>(&cidr_info).unwrap())
+            println!("{}", serde_json::to_string_pretty::<CidrInfo>(&cidr_info).expect("CidrInfo should be converted to valid yaml."))
         }
         Output::yaml => {
-            println!("{}", serde_yaml::to_string::<CidrInfo>(&cidr_info).unwrap())
+            println!("{}", serde_yaml::to_string::<CidrInfo>(&cidr_info).expect("CidrInfo should be converted to valid yaml."))
         },
     }
 

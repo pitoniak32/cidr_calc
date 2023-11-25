@@ -1,39 +1,51 @@
-use std::{net::Ipv4Addr, process::exit, str::FromStr};
+use anyhow::{anyhow, Result};
+use std::{net::Ipv4Addr, str::FromStr};
 
-pub fn parse_ip_cidr_string(ip_and_cidr: &str) -> (Ipv4Addr, u8) {
-    let parts: Vec<&str> = ip_and_cidr.split("/").collect();
-    if parts.len() < 2 {
-        usage();
-    }
-    let ip = Ipv4Addr::from_str(parts.get(0).expect("ip should not be none"))
-        .expect("ip should be a vaild ipv4 address");
-    let cidr = u8::from_str(parts.get(1).expect("cider mask should not be none"))
-        .expect("CIDR should be in range 0-32 inclusive");
-    if cidr > 32 {
-        panic!("CIDR should be in range 0-32 inclusive");
-    }
+pub fn parse_ip_cidr_string(ip_and_cidr: &str) -> Result<(Ipv4Addr, u8)> {
+    let parts: Vec<&str> = ip_and_cidr.split('/').collect();
 
-    (ip, cidr)
+    if parts.len() > 2 {
+        return Err(anyhow!("Too many parts for ip/cidr input were provided"))
+    }
+    let ip = match parts.get(0) {
+        Some(ip) => ip,
+        None => return Err(anyhow!("Missing parts for ip/cidr input")),
+    };
+
+    let cidr = match parts.get(1) {
+        Some(cidr) => cidr,
+        None => return Err(anyhow!("Missing parts for ip/cidr input")),
+    };
+
+    let ip = match Ipv4Addr::from_str(ip) {
+        Ok(ip) => ip,
+        Err(err) => return Err(anyhow!("Ip must be a vaild ipv4 address: {err}")),
+    };
+    let cidr = match u8::from_str(cidr) {
+        Ok(cidr) if cidr <= 32 => cidr,
+        Ok(_) | Err(_) => return Err(anyhow!("CIDR must be in range 0-32 inclusive")),
+    };
+
+    Ok((ip, cidr))
 }
 
 pub fn usage() {
     eprintln!("usage: cidr <ipv4>/<cidr>");
-    exit(1);
 }
 
 pub fn get_subnet_mask(cidr: u8) -> Ipv4Addr {
     let wildcard_bits = 32 - cidr;
     let mask_bits: String = format!(
         "{}{}",
-        "1".repeat(cidr.into()).to_string(),
+        "1".repeat(cidr.into()),
         "0".repeat(wildcard_bits.into())
     );
 
     Ipv4Addr::new(
-        u8::from_str_radix(&mask_bits[..8], 2).unwrap(),
-        u8::from_str_radix(&mask_bits[8..16], 2).unwrap(),
-        u8::from_str_radix(&mask_bits[16..24], 2).unwrap(),
-        u8::from_str_radix(&mask_bits[24..32], 2).unwrap(),
+        u8::from_str_radix(&mask_bits[..8], 2).expect("bits should only contain 0 or 1."),
+        u8::from_str_radix(&mask_bits[8..16], 2).expect("bits should only contain 0 or 1."),
+        u8::from_str_radix(&mask_bits[16..24], 2).expect("bits should only contain 0 or 1."),
+        u8::from_str_radix(&mask_bits[24..32], 2).expect("bits should only contain 0 or 1."),
     )
 }
 
@@ -119,19 +131,19 @@ mod test {
     fn test_parse_ip_cidr_string() {
         // Arrange / Act / Assert
         assert_eq!(
-            parse_ip_cidr_string("0.0.0.0/0"),
+            parse_ip_cidr_string("0.0.0.0/0").unwrap(),
             (Ipv4Addr::new(0, 0, 0, 0), 0)
         );
         assert_eq!(
-            parse_ip_cidr_string("0.0.0.1/1"),
+            parse_ip_cidr_string("0.0.0.1/1").unwrap(),
             (Ipv4Addr::new(0, 0, 0, 1), 1)
         );
         assert_eq!(
-            parse_ip_cidr_string("192.168.1.0/24"),
+            parse_ip_cidr_string("192.168.1.0/24").unwrap(),
             (Ipv4Addr::new(192, 168, 1, 0), 24)
         );
         assert_eq!(
-            parse_ip_cidr_string("255.255.255.255/32"),
+            parse_ip_cidr_string("255.255.255.255/32").unwrap(),
             (Ipv4Addr::new(255, 255, 255, 255), 32)
         );
     }
@@ -140,21 +152,21 @@ mod test {
     #[should_panic]
     fn test_parse_ip_cidr_string_too_big_cidr() {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("0.0.0.0/33");
+        parse_ip_cidr_string("0.0.0.0/33").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_parse_ip_cidr_string_too_big_ip() {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("256.256.256.256/1");
+        parse_ip_cidr_string("256.256.256.256/1").unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_parse_ip_cidr_string_too_small_ip() {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("-1.-1.-1.-1/1");
+        parse_ip_cidr_string("-1.-1.-1.-1/1").unwrap();
     }
 
     #[test]
