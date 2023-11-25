@@ -1,6 +1,6 @@
 on:
   release:
-    types: [release]
+    types: [released]
 jobs:
   publish-crate:
     runs-on: ubuntu-latest
