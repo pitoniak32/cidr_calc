@@ -1,8 +1,9 @@
 name: Cargo Build & Test
 on:
   push:
-    branches: '*'
-env: 
+    branches:
+      - '**'
+env:
   CARGO_TERM_COLOR: always
 jobs:
   build_and_test:
@@ -19,5 +20,3 @@ jobs:
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: cargo build --verbose
       - run: cargo test --verbose
-  
-

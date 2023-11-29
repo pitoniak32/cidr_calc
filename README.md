@@ -1,4 +1,21 @@
-Easily calculate cidr subnets
+Easily calculate CIDR subnets
+
+# Install
+
+### Using Cargo
+
+If you have rust installed:
+```
+cargo install --locked cidr_calc
+```
+
+If not check it out!
+https://www.rust-lang.org/tools/install
+
+### Releases Binary
+
+You can also download the release binary from GitHub releases.
+https://github.com/pitoniak32/cidr_calc/releases
 
 # Usage
 ```
