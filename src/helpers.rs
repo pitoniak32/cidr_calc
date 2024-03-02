@@ -120,6 +120,7 @@ pub fn get_host_values(cidr: u8) -> (u64, u64) {
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
     use std::net::Ipv4Addr;
 
     use crate::helpers::{
@@ -127,168 +128,140 @@ mod test {
         get_network_addr, get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string,
     };
 
-    #[test]
-    fn test_parse_ip_cidr_string() {
+    #[rstest]
+    #[case("0.0.0.0/0", (Ipv4Addr::new(0, 0, 0, 0), 0))]
+    #[case("0.0.0.1/1", (Ipv4Addr::new(0, 0, 0, 1), 1))]
+    #[case("192.168.1.0/24", (Ipv4Addr::new(192, 168, 1, 0), 24))]
+    #[case("255.255.255.255/32", (Ipv4Addr::new(255, 255, 255, 255), 32))]
+    fn test_parse_ip_cidr_string(#[case] input: &str, #[case] expected: (Ipv4Addr, u8)) {
         // Arrange / Act / Assert
-        assert_eq!(
-            parse_ip_cidr_string("0.0.0.0/0").unwrap(),
-            (Ipv4Addr::new(0, 0, 0, 0), 0)
-        );
-        assert_eq!(
-            parse_ip_cidr_string("0.0.0.1/1").unwrap(),
-            (Ipv4Addr::new(0, 0, 0, 1), 1)
-        );
-        assert_eq!(
-            parse_ip_cidr_string("192.168.1.0/24").unwrap(),
-            (Ipv4Addr::new(192, 168, 1, 0), 24)
-        );
-        assert_eq!(
-            parse_ip_cidr_string("255.255.255.255/32").unwrap(),
-            (Ipv4Addr::new(255, 255, 255, 255), 32)
-        );
+        assert_eq!(parse_ip_cidr_string(input).unwrap(), expected);
     }
 
-    #[test]
+    #[rstest]
+    #[case::too_big_cidr("0.0.0.0/33")]
+    #[case::too_small_cidr("0.0.0.0/-1")]
+    #[case::too_big_ip("256.256.256.256/1")]
+    #[case::too_small_ip("-1.-1.-1.-1/1")]
+    #[case::multi_format("0-0-0-0/33")]
     #[should_panic]
-    fn test_parse_ip_cidr_string_too_big_cidr() {
+    fn test_parse_ip_cidr_string_invalid(#[case] input: &str) {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("0.0.0.0/33").unwrap();
+        parse_ip_cidr_string(input).unwrap();
     }
 
-    #[test]
-    #[should_panic]
-    fn test_parse_ip_cidr_string_too_big_ip() {
+    #[rstest]
+    #[case(0, Ipv4Addr::new(0, 0, 0, 0))]
+    #[case(8, Ipv4Addr::new(255, 0, 0, 0))]
+    #[case(16, Ipv4Addr::new(255, 255, 0, 0))]
+    #[case(24, Ipv4Addr::new(255, 255, 255, 0))]
+    #[case(25, Ipv4Addr::new(255, 255, 255, 128))]
+    #[case(32, Ipv4Addr::new(255, 255, 255, 255))]
+    fn test_get_subnet_mask(#[case] input: u8, #[case] expected: Ipv4Addr) {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("256.256.256.256/1").unwrap();
+        assert_eq!(get_subnet_mask(input), expected);
     }
 
-    #[test]
-    #[should_panic]
-    fn test_parse_ip_cidr_string_too_small_ip() {
+    #[rstest]
+    #[case(Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(255, 255, 255, 255))]
+    #[case(Ipv4Addr::new(255, 0, 0, 0), Ipv4Addr::new(0, 255, 255, 255))]
+    #[case(Ipv4Addr::new(255, 255, 0, 0), Ipv4Addr::new(0, 0, 255, 255))]
+    #[case(Ipv4Addr::new(255, 255, 255, 0), Ipv4Addr::new(0, 0, 0, 255))]
+    #[case(Ipv4Addr::new(255, 255, 255, 128), Ipv4Addr::new(0, 0, 0, 127))]
+    #[case(Ipv4Addr::new(255, 255, 255, 255), Ipv4Addr::new(0, 0, 0, 0))]
+    fn test_get_wildcard_mask(#[case] input: Ipv4Addr, #[case] expected: Ipv4Addr) {
         // Arrange / Act / Assert
-        parse_ip_cidr_string("-1.-1.-1.-1/1").unwrap();
+        assert_eq!(get_wildcard_mask(input), expected);
     }
 
-    #[test]
-    fn test_get_subnet_mask() {
+    #[rstest]
+    #[case(
+        Ipv4Addr::new(0, 0, 0, 0),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(0, 0, 0, 0)
+    )]
+    #[case(
+        Ipv4Addr::new(255, 255, 255, 0),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 2, 3, 0)
+    )]
+    #[case(
+        Ipv4Addr::new(255, 255, 255, 0),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 2, 3, 0)
+    )]
+    #[case(
+        Ipv4Addr::new(255, 255, 0, 0),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 2, 0, 0)
+    )]
+    fn test_get_network_addr(
+        #[case] input1: Ipv4Addr,
+        #[case] input2: Ipv4Addr,
+        #[case] expected: Ipv4Addr,
+    ) {
         // Arrange / Act / Assert
-        assert_eq!(get_subnet_mask(0), Ipv4Addr::new(0, 0, 0, 0));
-        assert_eq!(get_subnet_mask(8), Ipv4Addr::new(255, 0, 0, 0));
-        assert_eq!(get_subnet_mask(16), Ipv4Addr::new(255, 255, 0, 0));
-        assert_eq!(get_subnet_mask(24), Ipv4Addr::new(255, 255, 255, 0));
-        assert_eq!(get_subnet_mask(25), Ipv4Addr::new(255, 255, 255, 128));
-        assert_eq!(get_subnet_mask(32), Ipv4Addr::new(255, 255, 255, 255));
+        assert_eq!(get_network_addr(input1, input2), expected);
     }
 
-    #[test]
-    fn test_get_wildcard_mask() {
+    #[rstest]
+    #[case(Ipv4Addr::new(1, 2, 3, 4), 1, Ipv4Addr::new(1, 2, 3, 5))]
+    #[case(Ipv4Addr::new(1, 2, 3, 0), 1, Ipv4Addr::new(1, 2, 3, 1))]
+    #[case(Ipv4Addr::new(0, 0, 0, 0), 1, Ipv4Addr::new(0, 0, 0, 1))]
+    #[case(Ipv4Addr::new(10, 0, 0, 1), 0, Ipv4Addr::new(10, 0, 0, 1))]
+    fn test_get_first_host_addr(
+        #[case] input1: Ipv4Addr,
+        #[case] input2: u64,
+        #[case] expected: Ipv4Addr,
+    ) {
         // Arrange / Act / Assert
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(0, 0, 0, 0)),
-            Ipv4Addr::new(255, 255, 255, 255)
-        );
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(255, 0, 0, 0)),
-            Ipv4Addr::new(0, 255, 255, 255)
-        );
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(255, 255, 0, 0)),
-            Ipv4Addr::new(0, 0, 255, 255)
-        );
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(255, 255, 255, 0)),
-            Ipv4Addr::new(0, 0, 0, 255)
-        );
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(255, 255, 255, 128)),
-            Ipv4Addr::new(0, 0, 0, 127)
-        );
-        assert_eq!(
-            get_wildcard_mask(Ipv4Addr::new(255, 255, 255, 255)),
-            Ipv4Addr::new(0, 0, 0, 0)
-        );
+        assert_eq!(get_first_host_addr(input1, input2), expected,);
     }
 
-    #[test]
-    fn test_get_network_addr() {
+    #[rstest]
+    #[case(
+        Ipv4Addr::new(0, 0, 0, 127),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 2, 3, 127)
+    )]
+    #[case(
+        Ipv4Addr::new(0, 255, 255, 255),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 255, 255, 255)
+    )]
+    #[case(
+        Ipv4Addr::new(0, 0, 0, 1),
+        Ipv4Addr::new(1, 2, 3, 4),
+        Ipv4Addr::new(1, 2, 3, 5)
+    )]
+    fn test_get_broadcast_addr(
+        #[case] input1: Ipv4Addr,
+        #[case] input2: Ipv4Addr,
+        #[case] expected: Ipv4Addr,
+    ) {
         // Arrange / Act / Assert
-        assert_eq!(
-            get_network_addr(Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(0, 0, 0, 0)
-        );
-        assert_eq!(
-            get_network_addr(Ipv4Addr::new(255, 255, 255, 0), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(1, 2, 3, 0)
-        );
-        assert_eq!(
-            get_network_addr(Ipv4Addr::new(255, 255, 0, 0), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(1, 2, 0, 0)
-        );
+        assert_eq!(get_broadcast_addr(input1, input2), expected);
     }
 
-    #[test]
-    fn test_get_first_host_addr() {
+    #[rstest]
+    #[case(Ipv4Addr::new(1, 2, 3, 255), 1, Ipv4Addr::new(1, 2, 3, 254))]
+    #[case(Ipv4Addr::new(1, 2, 3, 127), 1, Ipv4Addr::new(1, 2, 3, 126))]
+    #[case(Ipv4Addr::new(1, 255, 255, 255), 1, Ipv4Addr::new(1, 255, 255, 254))]
+    #[case(Ipv4Addr::new(10, 0, 0, 0), 0, Ipv4Addr::new(10, 0, 0, 0))]
+    fn test_get_last_host_addr(
+        #[case] input1: Ipv4Addr,
+        #[case] input2: u64,
+        #[case] expected: Ipv4Addr,
+    ) {
         // Arrange / Act / Assert
-        assert_eq!(
-            get_first_host_addr(Ipv4Addr::new(1, 2, 3, 4), 1),
-            Ipv4Addr::new(1, 2, 3, 5)
-        );
-        assert_eq!(
-            get_first_host_addr(Ipv4Addr::new(1, 2, 3, 0), 1),
-            Ipv4Addr::new(1, 2, 3, 1)
-        );
-        assert_eq!(
-            get_first_host_addr(Ipv4Addr::new(0, 0, 0, 0), 1),
-            Ipv4Addr::new(0, 0, 0, 1)
-        );
-        assert_eq!(
-            get_first_host_addr(Ipv4Addr::new(10, 0, 0, 1), 0),
-            Ipv4Addr::new(10, 0, 0, 1)
-        );
+        assert_eq!(get_last_host_addr(input1, input2), expected);
     }
 
-    #[test]
-    fn test_get_broadcast_addr() {
-        // Arrange / Act / Assert
-        assert_eq!(
-            get_broadcast_addr(Ipv4Addr::new(0, 0, 0, 127), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(1, 2, 3, 127)
-        );
-        assert_eq!(
-            get_broadcast_addr(Ipv4Addr::new(0, 255, 255, 255), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(1, 255, 255, 255)
-        );
-        assert_eq!(
-            get_broadcast_addr(Ipv4Addr::new(0, 0, 0, 1), Ipv4Addr::new(1, 2, 3, 4)),
-            Ipv4Addr::new(1, 2, 3, 5)
-        );
-    }
-
-    #[test]
-    fn test_get_last_host_addr() {
-        // Arrange / Act / Assert
-        assert_eq!(
-            get_last_host_addr(Ipv4Addr::new(1, 2, 3, 255), 1),
-            Ipv4Addr::new(1, 2, 3, 254)
-        );
-        assert_eq!(
-            get_last_host_addr(Ipv4Addr::new(1, 2, 3, 127), 1),
-            Ipv4Addr::new(1, 2, 3, 126)
-        );
-        assert_eq!(
-            get_last_host_addr(Ipv4Addr::new(1, 255, 255, 255), 1),
-            Ipv4Addr::new(1, 255, 255, 254)
-        );
-        assert_eq!(
-            get_last_host_addr(Ipv4Addr::new(10, 0, 0, 0), 0),
-            Ipv4Addr::new(10, 0, 0, 0)
-        );
-    }
-
-    #[test]
-    fn test_get_host_values() {
-        assert_eq!(get_host_values(1), (2_147_483_648, 2_147_483_646));
-        assert_eq!(get_host_values(24), (256, 254));
-        assert_eq!(get_host_values(32), (1, 0));
+    #[rstest]
+    #[case(1, (2_147_483_648, 2_147_483_646))]
+    #[case(24, (256, 254))]
+    #[case(32, (1, 0))]
+    fn test_get_host_values(#[case] input: u8, #[case] expected: (u64, u64)) {
+        assert_eq!(get_host_values(input), expected);
     }
 }
