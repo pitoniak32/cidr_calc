@@ -1,0 +1,12 @@
+name: GH Release Build
+'on':
+  workflow_dispatch: {}
+  push:
+    tags:
+    - 'v*.*.*'
+jobs:
+  release:
+    uses: pitoniak32/actions/.github/workflows/rust-gh-release.yml@main
+    with:
+      artifact-name: cidrc
+    secrets: inherit
