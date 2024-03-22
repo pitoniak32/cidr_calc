@@ -1,11 +1,11 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 use crate::helpers::{
     get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr, get_network_addr,
-    get_subnet_mask, get_wildcard_mask, parse_ip_cidr_string,
+    get_subnet_mask, get_wildcard_mask,
 };
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -52,8 +52,7 @@ total_hosts......: {total_hosts}",
 }
 
 impl CidrInfo {
-    pub fn new(ip_and_cidr: &str) -> Result<Self> {
-        let (ip, cidr) = parse_ip_cidr_string(ip_and_cidr)?;
+    pub fn new(ip: Ipv4Addr, cidr: u8) -> Result<Self> {
         let (hosts_total, hosts_usable) = get_host_values(cidr);
 
         let mask_subnet = get_subnet_mask(cidr);
@@ -80,11 +79,11 @@ impl CidrInfo {
 
 #[cfg(test)]
 mod test {
-    use std::net::Ipv4Addr;
+    use std::{net::Ipv4Addr, str::FromStr};
 
     use pretty_assertions::assert_eq;
 
-    use crate::cider_info::CidrInfo;
+    use crate::cidr_info::CidrInfo;
 
     #[test]
     fn basic_cidr_0() {
@@ -103,7 +102,7 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("0.0.0.0/0").unwrap();
+        let result_addr_info = CidrInfo::new(Ipv4Addr::from_str("0.0.0.0").unwrap(), 0).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);
@@ -126,7 +125,7 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("0.0.0.0/1").unwrap();
+        let result_addr_info = CidrInfo::new(Ipv4Addr::from_str("0.0.0.0").unwrap(), 1).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);
@@ -149,7 +148,8 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("255.255.255.253/11").unwrap();
+        let result_addr_info =
+            CidrInfo::new(Ipv4Addr::from_str("255.255.255.253").unwrap(), 11).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);
@@ -171,7 +171,7 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("10.8.17.0/13").unwrap();
+        let result_addr_info = CidrInfo::new(Ipv4Addr::from_str("10.8.17.0").unwrap(), 13).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);
@@ -194,7 +194,7 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("10.0.0.1/24").unwrap();
+        let result_addr_info = CidrInfo::new(Ipv4Addr::from_str("10.0.0.1").unwrap(), 24).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);
@@ -217,7 +217,7 @@ mod test {
         };
 
         // Act
-        let result_addr_info = CidrInfo::new("10.0.0.1/31").unwrap();
+        let result_addr_info = CidrInfo::new(Ipv4Addr::from_str("10.0.0.1").unwrap(), 31).unwrap();
 
         // Assert
         assert_eq!(result_addr_info, expected_addr_info);

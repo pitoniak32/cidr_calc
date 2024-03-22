@@ -19,15 +19,18 @@ https://github.com/pitoniak32/cidr_calc/releases
 
 # Usage
 ```
+easily calculate CIDR subnets
+
 Usage: cidrc [OPTIONS] <IP_CIDR>
 
 Arguments:
-  <IP_CIDR>
+  <IP_CIDR>  X.X.X.X/X, or X-X-X-X-X (ex: 10.0.0.1/24, or 10-0-0-1-24)
 
 Options:
-  -o, --output <OUTPUT>  [default: text] [possible values: text, json, yaml]
+  -o, --output <OUTPUT>  [default: text] [possible values: text, json, yaml, yml]
   -h, --help             Print help
   -V, --version          Print version
+
 ```
 
 # Examples
@@ -61,3 +64,21 @@ total_hosts......: 256
   "total_hosts": 256
 }
 ```
+
+```
+❯ echo "1.1.1.1/1" | xargs cidrc -o json
+{
+  "ip": "1.1.1.1",
+  "cidr": 1,
+  "subnet_mask": "128.0.0.0",
+  "wildcard_mask": "127.255.255.255",
+  "first_host_addr": "0.0.0.1",
+  "last_host_addr": "127.255.255.254",
+  "usable_hosts": 2147483646,
+  "network_addr": "0.0.0.0",
+  "broadcast_addr": "127.255.255.255",
+  "total_hosts": 2147483648
+}
+```
+
+
