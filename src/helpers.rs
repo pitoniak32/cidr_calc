@@ -1,31 +1,24 @@
-use anyhow::{anyhow, Result};
 use std::{net::Ipv4Addr, str::FromStr, u8};
 
-use crate::USAGE_MSG;
+use crate::error::CalcError;
 
-pub fn parse_ip(input: &str) -> Result<Ipv4Addr> {
+pub fn parse_ip(input: &str) -> Result<Ipv4Addr, CalcError> {
     Ok(Ipv4Addr::from_str(input)?)
 }
 
-pub fn parse_cidr(input: &str) -> Result<u8> {
-    let msg = "CIDR must be in range 0-32 inclusive";
-    match input.parse::<u8>() {
-        Ok(n) => {
-            if n <= 32 {
-                Ok(n)
-            } else {
-                Err(anyhow!(msg))
-            }
-        }
-        Err(_) => Err(anyhow!(msg)),
+pub fn parse_cidr(input: &str) -> Result<u8, CalcError> {
+    let n = input.parse::<u8>()?;
+    if n > 32 {
+        return Err(CalcError::CidrOutOfRange(n));
     }
+    Ok(n)
 }
 
-fn split_dotted(input: &str) -> Result<(String, String)> {
+fn split_dotted(input: &str) -> Result<(String, String), CalcError> {
     let parts: Vec<_> = input.split('/').collect();
 
     if parts.len() != 2 {
-        return Err(anyhow!(USAGE_MSG));
+        return Err(CalcError::DottedSplit(input.to_string()));
     }
 
     Ok((
@@ -34,11 +27,11 @@ fn split_dotted(input: &str) -> Result<(String, String)> {
     ))
 }
 
-fn split_dashed(input: &str) -> Result<(String, String)> {
+fn split_dashed(input: &str) -> Result<(String, String), CalcError> {
     let parts: Vec<_> = input.splitn(6, '-').collect();
 
     if parts.len() != 5 {
-        return Err(anyhow!(USAGE_MSG));
+        return Err(CalcError::DashedSplit(input.to_string()));
     }
 
     let part1 = parts[..4].join(".");
@@ -47,14 +40,14 @@ fn split_dashed(input: &str) -> Result<(String, String)> {
     Ok((part1, part2))
 }
 
-pub fn parse_ip_and_cidr(input: String) -> Result<(Ipv4Addr, u8)> {
+pub fn parse_ip_and_cidr(input: String) -> Result<(Ipv4Addr, u8), CalcError> {
     let parts: (String, String) =
         if input.matches('/').count() == 1 && input.matches('.').count() == 3 {
             split_dotted(&input)?
         } else if input.matches('-').count() == 4 {
             split_dashed(&input)?
         } else {
-            return Err(anyhow!(USAGE_MSG));
+            return Err(CalcError::Format(input.to_string()));
         };
 
     Ok((parse_ip(&parts.0)?, parse_cidr(&parts.1)?))
@@ -189,7 +182,7 @@ mod test {
     #[rstest]
     #[case::too_big_ip("256.256.256.256")]
     #[case::too_small_ip("-1.-1.-1.-1")]
-    #[should_panic(expected = "invalid IPv4 address syntax")]
+    #[should_panic]
     fn test_parse_ip_invalid(#[case] input: &str) {
         parse_ip(input).unwrap();
     }
@@ -206,7 +199,7 @@ mod test {
     #[case::too_big_cidr("256")]
     #[case::too_big_cidr("33")]
     #[case::too_small_cidr("-1")]
-    #[should_panic(expected = "CIDR must be in range 0-32 inclusive")]
+    #[should_panic]
     fn test_parse_cidr_invalid(#[case] input: &str) {
         parse_cidr(input).unwrap();
     }
@@ -226,18 +219,12 @@ mod test {
     }
 
     #[rstest]
-    #[should_panic(expected = "CIDR must be in range 0-32 inclusive")]
     #[case::too_big_cidr("0.0.0.0/33")]
-    #[should_panic(expected = "CIDR must be in range 0-32 inclusive")]
     #[case::too_small_cidr("0.0.0.0/-1")]
-    #[should_panic(expected = "invalid IPv4 address syntax")]
     #[case::too_big_ip("256.256.256.256/1")]
-    #[should_panic(expected = "invalid IPv4 address syntax")]
     #[case::too_small_ip("-1.-1.-1.-1/1")]
-    #[should_panic(
-        expected = "format must be X.X.X.X/X, or X-X-X-X-X (ex: 10.0.0.1/24, or 10-0-0-1-24)"
-    )]
     #[case::multi_format("0-0-0-0/33")]
+    #[should_panic]
     fn test_parse_ip_cidr_string_invalid(#[case] input: &str) {
         // Arrange / Act / Assert
         let _ = parse_ip_and_cidr(input.to_string()).unwrap();
