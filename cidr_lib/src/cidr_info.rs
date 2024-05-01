@@ -55,6 +55,10 @@ total_hosts......: {total_hosts}",
 
 impl CidrInfo {
     pub fn new(ip: Ipv4Addr, cidr: u8) -> Result<Self, Error> {
+        if cidr > 32 {
+            return Err(Error::CidrOutOfRange(cidr));
+        }
+
         let (hosts_total, hosts_usable) = get_host_values(cidr);
 
         let mask_subnet = get_subnet_mask(cidr);

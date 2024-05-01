@@ -4,13 +4,12 @@ use anyhow::Result;
 
 use clap::{Parser, ValueEnum};
 
-use cidr_lib::{cidr_info::CidrInfo, error::USAGE_MSG};
+use cidr_lib::{cidr_info::CidrInfo, error::PARSE_FMT_MSG};
 
 #[derive(Parser)]
 #[command(author, version, about)]
-/// Manage your terminal environment.
 struct Cli {
-    #[arg(help = USAGE_MSG)]
+    #[arg(help = ["Usage: ", PARSE_FMT_MSG].concat())]
     ip_cidr: String,
 
     #[arg(short, long, default_value_t = Output::default())]

@@ -2,7 +2,12 @@ name: Publish Crate
 on:
   workflow_dispatch: {}
 jobs:
-  publish-crate:
+  publish-lib:
+    uses: pitoniak32/actions/.github/workflows/rust-publish-crate.yml@main
+    with:
+      package-name: cidr_lib
+    secrets: inherit
+  publish-bin:
     uses: pitoniak32/actions/.github/workflows/rust-publish-crate.yml@main
     with:
       package-name: cidr_calc
