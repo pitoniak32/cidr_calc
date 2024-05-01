@@ -6,6 +6,9 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/pitoniak32/cidr_calc"
 
+[lib]
+name = "cidr_calc"
+path = "src/lib.rs"
 
 [[bin]]
 name = "cidrc"

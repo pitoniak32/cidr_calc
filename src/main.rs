@@ -2,13 +2,8 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use helpers::parse_ip_and_cidr;
 
-use crate::{cidr_info::CidrInfo, error::USAGE_MSG};
-
-mod cidr_info;
-mod error;
-mod helpers;
+use cidr_calc::{cidr_info::CidrInfo, error::USAGE_MSG, helpers::parse_ip_and_cidr};
 
 #[derive(Parser)]
 #[command(author, version, about)]
