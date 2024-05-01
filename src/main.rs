@@ -4,18 +4,17 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use helpers::parse_ip_and_cidr;
 
-use crate::cidr_info::CidrInfo;
+use crate::{cidr_info::CidrInfo, error::USAGE_MSG};
 
 mod cidr_info;
+mod error;
 mod helpers;
-
-const USAGE_MSG: &str = "format must be X.X.X.X/X, or X-X-X-X-X (ex: 10.0.0.1/24, or 10-0-0-1-24)";
 
 #[derive(Parser)]
 #[command(author, version, about)]
 /// Manage your terminal environment.
 struct Cli {
-    /// X.X.X.X/X, or X-X-X-X-X (ex: 10.0.0.1/24, or 10-0-0-1-24)
+    #[arg(help = USAGE_MSG.concat())]
     ip_cidr: String,
 
     #[arg(short, long, default_value_t = Output::default())]
