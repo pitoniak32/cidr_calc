@@ -2,8 +2,8 @@
 resolver = "2"
 
 members = [
+  "cidr_calc",
   "cidr_lib",
-  "cidr_bin",
 ]
 
 [workspace.dependencies]
