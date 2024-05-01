@@ -1,6 +1,6 @@
 [package]
 name = "cidr_lib"
-version = "0.1.0"
+version = "0.1.1"
 description = "easily calculate CIDR subnets"
 author = "David Pitoniak (Pitoniak32)"
 repository = "https://github.com/pitoniak32/cidr_calc"
