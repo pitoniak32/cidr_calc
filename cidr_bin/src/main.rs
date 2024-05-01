@@ -1,15 +1,16 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use anyhow::Result;
+
 use clap::{Parser, ValueEnum};
 
-use cidr_calc::{cidr_info::CidrInfo, error::USAGE_MSG, helpers::parse_ip_and_cidr};
+use cidr_lib::{cidr_info::CidrInfo, error::USAGE_MSG};
 
 #[derive(Parser)]
 #[command(author, version, about)]
 /// Manage your terminal environment.
 struct Cli {
-    #[arg(help = USAGE_MSG.concat())]
+    #[arg(help = USAGE_MSG)]
     ip_cidr: String,
 
     #[arg(short, long, default_value_t = Output::default())]
@@ -22,8 +23,6 @@ enum Output {
     #[default]
     text,
     json,
-    yaml,
-    yml,
 }
 
 impl Display for Output {
@@ -34,8 +33,8 @@ impl Display for Output {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let (ip, cidr) = parse_ip_and_cidr(cli.ip_cidr)?;
-    let cidr_info = CidrInfo::new(ip, cidr)?;
+
+    let cidr_info = CidrInfo::from_str(&cli.ip_cidr)?;
 
     match cli.output {
         Output::text => {
@@ -46,13 +45,6 @@ fn main() -> Result<()> {
                 "{}",
                 serde_json::to_string_pretty::<CidrInfo>(&cidr_info)
                     .expect("CidrInfo should be converted to valid json.")
-            )
-        }
-        Output::yml | Output::yaml => {
-            println!(
-                "{}",
-                serde_yaml::to_string::<CidrInfo>(&cidr_info)
-                    .expect("CidrInfo should be converted to valid yaml.")
             )
         }
     }

@@ -1,11 +1,13 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::helpers::{
-    get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr, get_network_addr,
-    get_subnet_mask, get_wildcard_mask,
+use crate::{
+    error::Error,
+    helpers::{
+        get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr,
+        get_network_addr, get_subnet_mask, get_wildcard_mask,
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -52,7 +54,7 @@ total_hosts......: {total_hosts}",
 }
 
 impl CidrInfo {
-    pub fn new(ip: Ipv4Addr, cidr: u8) -> Result<Self> {
+    pub fn new(ip: Ipv4Addr, cidr: u8) -> Result<Self, Error> {
         let (hosts_total, hosts_usable) = get_host_values(cidr);
 
         let mask_subnet = get_subnet_mask(cidr);

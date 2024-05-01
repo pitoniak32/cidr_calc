@@ -1,57 +1,4 @@
-use std::{net::Ipv4Addr, str::FromStr, u8};
-
-use crate::error::CalcError;
-
-pub fn parse_ip(input: &str) -> Result<Ipv4Addr, CalcError> {
-    Ok(Ipv4Addr::from_str(input)?)
-}
-
-pub fn parse_cidr(input: &str) -> Result<u8, CalcError> {
-    let n = input.parse::<u8>()?;
-    if n > 32 {
-        return Err(CalcError::CidrOutOfRange(n));
-    }
-    Ok(n)
-}
-
-fn split_dotted(input: &str) -> Result<(String, String), CalcError> {
-    let parts: Vec<_> = input.split('/').collect();
-
-    if parts.len() != 2 {
-        return Err(CalcError::DottedSplit(input.to_string()));
-    }
-
-    Ok((
-        parts.first().unwrap().to_string(),
-        parts.get(1).unwrap().to_string(),
-    ))
-}
-
-fn split_dashed(input: &str) -> Result<(String, String), CalcError> {
-    let parts: Vec<_> = input.splitn(6, '-').collect();
-
-    if parts.len() != 5 {
-        return Err(CalcError::DashedSplit(input.to_string()));
-    }
-
-    let part1 = parts[..4].join(".");
-    let part2 = parts[4].to_string();
-
-    Ok((part1, part2))
-}
-
-pub fn parse_ip_and_cidr(input: String) -> Result<(Ipv4Addr, u8), CalcError> {
-    let parts: (String, String) =
-        if input.matches('/').count() == 1 && input.matches('.').count() == 3 {
-            split_dotted(&input)?
-        } else if input.matches('-').count() == 4 {
-            split_dashed(&input)?
-        } else {
-            return Err(CalcError::Format(input.to_string()));
-        };
-
-    Ok((parse_ip(&parts.0)?, parse_cidr(&parts.1)?))
-}
+use std::net::Ipv4Addr;
 
 pub fn get_subnet_mask(cidr: u8) -> Ipv4Addr {
     let wildcard_bits = 32 - cidr;
@@ -139,96 +86,14 @@ pub fn get_host_values(cidr: u8) -> (u64, u64) {
 
 #[cfg(test)]
 mod test {
-    use anyhow::Result;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
     use std::net::Ipv4Addr;
 
     use crate::helpers::{
         get_broadcast_addr, get_first_host_addr, get_host_values, get_last_host_addr,
-        get_network_addr, get_subnet_mask, get_wildcard_mask, parse_cidr, parse_ip,
-        parse_ip_and_cidr, split_dashed, split_dotted,
+        get_network_addr, get_subnet_mask, get_wildcard_mask,
     };
-
-    #[rstest]
-    #[case("255.255.255.255/24", ("255.255.255.255", "24"))]
-    #[case("1.1.1.1/0", ("1.1.1.1", "0"))]
-    #[case("0.0.0.0/1", ("0.0.0.0", "1"))]
-    fn test_split_dotted(#[case] input: &str, #[case] expected: (&str, &str)) -> Result<()> {
-        let (ip, cidr) = expected;
-        assert_eq!(split_dotted(input)?, (ip.to_string(), cidr.to_string()));
-        Ok(())
-    }
-
-    #[rstest]
-    #[case("255-255-255-255-24", ("255.255.255.255", "24"))]
-    #[case("1-1-1-1-0", ("1.1.1.1", "0"))]
-    #[case("0-0-0-0-1", ("0.0.0.0", "1"))]
-    fn test_split_dashed(#[case] input: &str, #[case] expected: (&str, &str)) -> Result<()> {
-        let (ip, cidr) = expected;
-        assert_eq!(split_dashed(input)?, (ip.to_string(), cidr.to_string()));
-        Ok(())
-    }
-
-    #[rstest]
-    #[case("255.255.255.255", Ipv4Addr::new(255, 255, 255, 255))]
-    #[case("1.1.1.1", Ipv4Addr::new(1, 1, 1, 1))]
-    #[case("0.0.0.0", Ipv4Addr::new(0, 0, 0, 0))]
-    fn test_parse_ip(#[case] input: &str, #[case] expected: Ipv4Addr) -> Result<()> {
-        assert_eq!(parse_ip(input)?, expected);
-        Ok(())
-    }
-
-    #[rstest]
-    #[case::too_big_ip("256.256.256.256")]
-    #[case::too_small_ip("-1.-1.-1.-1")]
-    #[should_panic]
-    fn test_parse_ip_invalid(#[case] input: &str) {
-        parse_ip(input).unwrap();
-    }
-
-    #[rstest]
-    #[case("32", 32)]
-    #[case("16", 16)]
-    #[case("0", 0)]
-    fn test_parse_cidr(#[case] input: &str, #[case] expected: u8) {
-        assert_eq!(parse_cidr(input).unwrap(), expected);
-    }
-
-    #[rstest]
-    #[case::too_big_cidr("256")]
-    #[case::too_big_cidr("33")]
-    #[case::too_small_cidr("-1")]
-    #[should_panic]
-    fn test_parse_cidr_invalid(#[case] input: &str) {
-        parse_cidr(input).unwrap();
-    }
-
-    #[rstest]
-    #[case("0.0.0.0/0", (Ipv4Addr::new(0, 0, 0, 0), 0))]
-    #[case("0-0-0-0-0", (Ipv4Addr::new(0, 0, 0, 0), 0))]
-    #[case("0.0.0.1/1", (Ipv4Addr::new(0, 0, 0, 1), 1))]
-    #[case("0-0-0-1-1", (Ipv4Addr::new(0, 0, 0, 1), 1))]
-    #[case("192.168.1.0/24", (Ipv4Addr::new(192, 168, 1, 0), 24))]
-    #[case("192-168-1-0-24", (Ipv4Addr::new(192, 168, 1, 0), 24))]
-    #[case("255.255.255.255/32", (Ipv4Addr::new(255, 255, 255, 255), 32))]
-    #[case("255-255-255-255-32", (Ipv4Addr::new(255, 255, 255, 255), 32))]
-    fn test_parse_ip_cidr_string(#[case] input: &str, #[case] expected: (Ipv4Addr, u8)) {
-        // Arrange / Act / Assert
-        assert_eq!(parse_ip_and_cidr(input.to_string()).unwrap(), expected);
-    }
-
-    #[rstest]
-    #[case::too_big_cidr("0.0.0.0/33")]
-    #[case::too_small_cidr("0.0.0.0/-1")]
-    #[case::too_big_ip("256.256.256.256/1")]
-    #[case::too_small_ip("-1.-1.-1.-1/1")]
-    #[case::multi_format("0-0-0-0/33")]
-    #[should_panic]
-    fn test_parse_ip_cidr_string_invalid(#[case] input: &str) {
-        // Arrange / Act / Assert
-        let _ = parse_ip_and_cidr(input.to_string()).unwrap();
-    }
 
     #[rstest]
     #[case(0, Ipv4Addr::new(0, 0, 0, 0))]
