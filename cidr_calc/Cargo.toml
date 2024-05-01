@@ -1,0 +1,25 @@
+[package]
+name = "cidr_calc"
+version = "0.2.0"
+description = "CLI to easily calculate CIDR subnets"
+author = "David Pitoniak (Pitoniak32)"
+repository = "https://github.com/pitoniak32/cidr_calc"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "cidrc"
+path = "src/main.rs"
+
+[dependencies]
+cidr_lib = { version = "0.1.0", path = "../cidr_lib", features = ["from_str"]}
+
+anyhow = "1.0.75"
+clap = { version = "4.4.8", features = ["derive"] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
+pretty_assertions = { workspace = true }

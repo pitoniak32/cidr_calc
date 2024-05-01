@@ -1,24 +1,13 @@
-[package]
-name = "cidr_calc"
-description = "easily calculate CIDR subnets"
-version = "0.1.5"
-edition = "2021"
-license = "MIT"
-repository = "https://github.com/pitoniak32/cidr_calc"
+[workspace]
+resolver = "2"
 
+members = [
+  "cidr_calc",
+  "cidr_lib",
+]
 
-[[bin]]
-name = "cidrc"
-path = "src/main.rs"
-
-[dependencies]
-anyhow = "1.0.75"
-clap = { version = "4.4.8", features = ["derive"] }
+[workspace.dependencies]
+rstest = "0.18.2"
 pretty_assertions = "1.4.0"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
-serde_yaml = "0.9.27"
-thiserror = "1.0.50"
-
-[dev-dependencies]
-rstest = "0.18.2"
